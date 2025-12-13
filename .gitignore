@@ -1,3 +1,8 @@
 config.json
 presents.json
 questions.json
+venv/
+*__pycache__
+*.pyc
+.vscode/
+*.log

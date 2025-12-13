@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vánoční Hra</title>
+    <script src="/static/tailwind.js"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 bg-slate-900 text-white">
+
+    <div class="w-full max-w-md bg-slate-800 rounded-xl shadow-2xl overflow-hidden border border-slate-700">
+        
+        <div class="p-6">
+            {% block content %}{% endblock %}
+        </div>
+
+    </div>
+
+</body>
+</html>

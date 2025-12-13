@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500">
+            Celkový přehled
+        </h1>
+    </div>
+
+    {% if stats %}
+        <div class="pt-6 border-t border-slate-700/50">            
+            <div class="space-y-4">
+                {% for s in stats %}
+                    {% if s.total > 0 %}
+                        {% set percent = (s.found / s.total * 100) | round | int %}
+                    {% else %}
+                        {% set percent = 0 %}
+                    {% endif %}
+                    
+                    <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-base font-bold text-slate-200">{{ s.name }}</span>
+                            <span class="text-base font-mono text-yellow-400">
+                                {{ s.found }} <span class="text-slate-500">/</span> {{ s.total }}
+                            </span>
+                        </div>
+                        
+                        <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                            <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2.5 rounded-full transition-all duration-1000 ease-out"
+                                 style="width: {{ percent }}%"></div>
+                        </div>
+                        
+                        <p class="text-[10px] text-green-400 text-right mt-1">
+                            {% if s.found != s.total %}
+                                {% set remaining = (s.total - s.found) %}
+                                Zbývá: {{ remaining }}
+                            {% else %}
+                                Vše! 
+                            {% endif %}
+                        </p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="text-center text-slate-500 mt-10">
+            Zatím nejsou v systému žádné dárky nebo příjemci.
+        </div>
+    {% endif %}
+
+{% endblock %}

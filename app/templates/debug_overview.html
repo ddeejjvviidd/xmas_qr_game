@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500">
+            DEBUG
+        </h1>
+    </div>
+
+    {% if stats %}
+        <div class="pt-6 border-t border-slate-700/50">            
+            <div class="space-y-6">
+                {% for s in stats %}
+                    
+                    <div class="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
+                        
+                        <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-700/50">
+                            <span class="text-lg font-bold text-slate-200">{{ s.name }}</span>
+                            <span class="text-base font-mono text-yellow-400">
+                                {{ s.found }} <span class="text-slate-500">/</span> {{ s.total }}
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            <div>
+                                <h3 class="text-[10px] uppercase text-green-400 font-bold mb-3 tracking-widest flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                    Odemčené ({{ s.unlocked_ids | length }})
+                                </h3>
+                                
+                                {% if s.unlocked_ids %}
+                                    <div class="flex flex-wrap gap-2">
+                                        {% for uid in s.unlocked_ids %}
+                                            <a href="/present?id={{ uid }}" target="_blank" 
+                                               class="px-2.5 py-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-mono rounded hover:bg-green-500/20 transition-colors">
+                                                {{ uid }}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-slate-600 text-xs italic pl-2">- zatím nic -</p>
+                                {% endif %}
+                            </div>
+
+                            <div>
+                                <h3 class="text-[10px] uppercase text-red-400 font-bold mb-3 tracking-widest flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                    Zamčené ({{ s.locked_ids | length }})
+                                </h3>
+                                
+                                {% if s.locked_ids %}
+                                    <div class="flex flex-wrap gap-2">
+                                        {% for lid in s.locked_ids %}
+                                            <a href="/present?id={{ lid }}" target="_blank" 
+                                               class="px-2.5 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono rounded hover:bg-red-500/20 transition-colors">
+                                                {{ lid }}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-slate-600 text-xs italic pl-2">- vše nalezeno -</p>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    {% else %}
+        <div class="text-center text-slate-500 mt-10">
+            Žádná data k zobrazení.
+        </div>
+    {% endif %}
+
+{% endblock %}

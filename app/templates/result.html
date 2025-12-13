@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <div class="animate-fade-in-up space-y-8 relative">
+        
+        <div class="text-center relative z-10">
+            <div class="inline-block bg-yellow-500/10 border border-yellow-500/20 rounded-full px-4 py-1 mb-4">
+                <p class="text-[10px] text-yellow-200 uppercase tracking-[0.2em] font-bold">
+                    Příjemce dárku:
+                </p>
+            </div>
+            
+            <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-yellow-100 to-yellow-500 drop-shadow-lg mb-2">
+                {{ present.recipients | join(', ') }}
+            </h1>
+            
+            {% if present.senders %}
+                <p class="text-slate-400 text-lg mt-2">
+                    od <span class="text-white font-medium">{{ present.senders | join(', ') }}</span>
+                </p>
+            {% endif %}
+        </div>
+
+        {% if present.note %}
+        <div class="relative group">
+            <div class="absolute -inset-0.5 bg-gradient-to-r from-yellow-600 to-yellow-400 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+            <div class="relative bg-slate-800 p-6 rounded-lg border border-slate-700 shadow-xl">
+                
+                <p class="text-l text-yellow-100 italic font-serif text-center leading-relaxed">
+                    {{ present.note }}
+                </p>
+                
+            </div>
+        </div>
+        {% endif %}
+
+        {% if stats %}
+        <div class="pt-6 border-t border-slate-700/50">            
+            <div class="space-y-4">
+                {% for s in stats %}
+                    {% set percent = (s.found / s.total * 100) | round | int %}
+                    
+                    <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
+                        <div class="flex justify-between items-end mb-2">
+                            <span class="text-base font-bold text-slate-200">{{ s.name }}</span>
+                            <span class="text-base font-mono text-yellow-400">
+                                {{ s.found }} <span class="text-slate-500">/</span> {{ s.total }}
+                            </span>
+                        </div>
+                        
+                        <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                            <div class="bg-gradient-to-r from-green-500 to-emerald-400 h-2.5 rounded-full transition-all duration-1000 ease-out"
+                                 style="width: {{ percent }}%"></div>
+                        </div>
+                        
+                        <p class="text-[10px] text-green-400 text-right mt-1">
+                            {% if s.found != s.total %}
+                                {% set remaining = (s.total - s.found) %}
+                                Zbývá: {{ remaining }}
+                            {% else %}
+                                Vše!
+                            {% endif %}
+                        </p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="text-center pb-2">
+            <div class="text-6xl animate-bounce cursor-default select-none filter drop-shadow-2xl">
+                🎁
+            </div>
+        </div>
+
+    </div>
+
+    <style>
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+    </style>
+{% endblock %}
