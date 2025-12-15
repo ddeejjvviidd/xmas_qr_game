@@ -1,9 +1,10 @@
 import os
 import json
 import random
+import shutil
 
-from fastapi import FastAPI, Request, Body
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Body, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
@@ -28,6 +29,10 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+REPEAT_QUESTIONS = False
+
+CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
+
 
 #===============================================================
 #==================         FUNCTIONS         ==================
@@ -44,37 +49,69 @@ def load_questions():
 
 def get_random_question(questions, categories=None):
     print("FUNC: get_random_question")
-    print(f'- given categories\': {categories}')
 
-    if categories is None:
-        print("RETURN Random choice without filtering")
-        return random.choice(questions)
+    if not REPEAT_QUESTIONS:
+        print(f'- Filtering out answered questions from total of: {len(questions)}')
+        original_questions = questions.copy()
+        questions = [q for q in questions if not q.get("answered", False)]
+        if len(questions) == 0:
+            print(f'- all questions answered, keeping original list.')
+            questions = original_questions
+        else:
+            print(f'- Questions after filtering answered: {len(questions)}')
+
+    if len(categories) > 0:
+        print(f'- given categories\': {categories}')
+        filtered_questions = [
+            q for q in questions
+            if any(cat in q.get("category", []) for cat in categories)
+        ]
+        if not filtered_questions:
+            print(f'- No questions found for the given categories.')
+        else:
+            print(f'- Questions after filtering by categories: {len(filtered_questions)}')
+            print("RETURN Random choice from specific categories.")
+            return random.choice(filtered_questions)
     
-
-    filtered_questions = [
-        q for q in questions
-        if any(cat in q.get("category", []) for cat in categories)
-    ]
-
-    print(f'- Total questions count: {len(questions)}')
-    print(f'- Filtered questions count: {len(filtered_questions)}')
-    
-    if not filtered_questions:
-        print("RETURN No questions found for the given categories")
-        return random.choice(questions)
-    
-    print("RETURN Questions filtered by categories")
-    return random.choice(filtered_questions)
-
+    print(f'RETURN Random choice from {len(questions)}')
+    return random.choice(questions)
+  
 def save_presents(presents):
-    with open(DATA_PRESENTS, "w", encoding="utf-8") as f:
-        json.dump(presents, f, indent=2, ensure_ascii=False)
+    print("FUNC: save_presents")
+
+    BACKUP_FILE = DATA_PRESENTS + ".bak"
+    shutil.copyfile(DATA_PRESENTS, BACKUP_FILE)
+    print(f'- Backup created: {BACKUP_FILE}')
+    
+    try:
+        print(f'- Trying to save presents to {DATA_PRESENTS}')
+        with open(DATA_PRESENTS, "w", encoding="utf-8") as f:
+            json.dump(presents, f, indent=2, ensure_ascii=False)
+        print(f'RETURN Presents saved successfully.')
+    except Exception as e:
+        shutil.copyfile(BACKUP_FILE, DATA_PRESENTS)
+        print("ERROR Error saving presents, restored from backup.")
+        raise e
+
+def save_questions(questions):
+    print("FUNC: save_questions")
+
+    BACKUP_FILE = DATA_QUESTIONS + ".bak"
+    shutil.copyfile(DATA_QUESTIONS, BACKUP_FILE)
+    print(f'- Backup created: {BACKUP_FILE}')
+    
+    try:
+        print(f'- Trying to save questions to {DATA_QUESTIONS}')
+        with open(DATA_QUESTIONS, "w", encoding="utf-8") as f:
+            json.dump(questions, f, indent=2, ensure_ascii=False)
+        print(f'RETURN Questions saved successfully.')
+    except Exception as e:
+        shutil.copyfile(BACKUP_FILE, DATA_QUESTIONS)
+        print("ERROR Error saving questions, restored from backup.")
+        raise e
 
 def calculate_stats(current_present, all_presents):
-    """
-    Goes through all the presents and counts stats for specified gift recipients.
-    Returns a list of dict: [{"name": "Táta", "found": 3, "total": 5}, ...]
-    """
+    print("FUNC: calculate_stats")
     recipients = current_present.get("recipients", [])
     stats = []
 
@@ -82,9 +119,7 @@ def calculate_stats(current_present, all_presents):
         found_count = 0
         total_count = 0
 
-        # Projdeme všechny dárky v databázi
         for p_id, p_data in all_presents.items():
-            # Pokud je tato osoba mezi příjemci zkoumaného dárku
             if person in p_data.get("recipients", []):
                 total_count += 1
                 if p_data.get("status") == "unlocked":
@@ -95,14 +130,12 @@ def calculate_stats(current_present, all_presents):
             "found": found_count,
             "total": total_count
         })
+    print(f'RETURN present stats: {stats}')
     
     return stats
     
 def calculate_global_stats(all_presents):
-    """
-    Goes through all the presents and counts stats for unique gift recipients.
-    Returns a list of dict: [{"name": "Táta", "found": 5, "total": 10}, ...]
-    """
+    print("FUNC: calculate_global_stats")
     stats_map = {}
 
     for p_id, p_data in all_presents.items():
@@ -131,8 +164,50 @@ def calculate_global_stats(all_presents):
     
     # sort by name
     stats_list.sort(key=lambda x: x["name"])
+
+    print(f'RETURN global stats: {stats_list}')
     
     return stats_list
+
+def reset_questions_answered():
+    print(f'FUNC: reset_questions_answered')
+    questions = load_questions()
+    changed = False
+    for q in questions:
+        if q.get("answered", False):
+            print(f'- Resetting question ID {q["id"]} answered status.')
+            q["answered"] = False
+            changed = True
+    
+    if changed:
+        save_questions(questions)
+        print(f'RETURN Questions reset completed.')
+    else:
+        print(f'RETURN No questions needed resetting.')
+
+def reset_presents_locks():
+    print(f'FUNC: reset_presents_locks')
+    presents = load_presents()
+    changed = False
+    for p_id in presents:
+        if presents[p_id].get("status") != "locked":
+            print(f'- Locking present ID {p_id}.')
+            presents[p_id]["status"] = "locked"
+            changed = True
+    
+    if changed:
+        save_presents(presents)
+        print(f'RETURN Presents lock reset completed.')
+    else:
+        print(f'RETURN No presents needed locking.')
+
+def generate_unique_code(existing_codes):
+    print(f'FUNC: generate_unique_code')
+    while True:
+        code = "".join(random.choices(CHARS, k=6))
+        if code not in existing_codes:
+            print(f'RETURN Generated unique code: {code}')
+            return code
 
 #===============================================================
 #==================       GET ENDPOINTS       ==================
@@ -185,6 +260,48 @@ async def present_endpoint(request: Request, id: str = None):
         "question": selected_question
     })
 
+@app.get("/overview")
+async def overview_endpoint(request: Request):
+    presents = load_presents()
+    
+    stats = calculate_global_stats(presents)
+    
+    return templates.TemplateResponse("overview.html", {
+        "request": request,
+        "stats": stats
+    })
+
+@app.get("/control_page")
+async def control_page_endpoint(request: Request):
+    presents = load_presents()
+    stats = calculate_global_stats(presents)
+    
+    return templates.TemplateResponse("control_page.html", {
+        "request": request,
+        "stats": stats
+    })
+
+@app.get("/getPresentData/{present_id}")
+async def get_present_data_endpoint(present_id: str):
+    presents = load_presents()
+    
+    if present_id in presents:
+        return {
+            "found": True, 
+            "data": presents[present_id]
+        }
+    else:
+        return {
+            "found": False,
+            "message": f"Present '{present_id}' not found."
+        }
+    
+@app.get("/add_present")
+async def add_present_page(request: Request):
+    return templates.TemplateResponse("add_present.html", {
+        "request": request
+    })
+
 #===============================================================
 #==================       POST ENDPOINTS      ==================
 #===============================================================
@@ -210,6 +327,10 @@ async def verify_answer(request: Request):
     is_correct = (selected_option_index == question["correct_option"])
     
     if is_correct:
+        if not REPEAT_QUESTIONS:
+            print("Marking question as answered")
+            question["answered"] = True
+            save_questions(questions)
         if present_id in presents:
             presents[present_id]["status"] = "unlocked"
             save_presents(presents)
@@ -217,24 +338,52 @@ async def verify_answer(request: Request):
     else:
         return {"success": False, "message": "Špatná odpověď, zkus to znovu."}
     
-@app.get("/overview")
-async def overview_endpoint(request: Request):
+@app.post("/control/reset_locks")
+async def control_reset_locks(request: Request):
+    reset_presents_locks()
+    return {"success": True, "message": "All presents locked."}
+
+@app.post("/control/reset_questions")
+async def control_reset_questions(request: Request):
+    reset_questions_answered()
+    return {"success": True, "message": "All questions reset."}
+
+@app.post("/control/reset_game")
+async def control_reset_game(request: Request):
+    reset_presents_locks()
+    reset_questions_answered()
+    return {"success": True, "message": "Complete game reset performed."}
+
+@app.post("/add_present")
+async def add_present_submit(
+    request: Request,
+    recipients: str = Form(""),
+    senders: str = Form(""),
+    note: str = Form(""),
+    hidden_note: str = Form(""),
+    question_categories: str = Form("")
+):
     presents = load_presents()
     
-    stats = calculate_global_stats(presents)
+    new_code = generate_unique_code(presents.keys())
     
-    return templates.TemplateResponse("overview.html", {
-        "request": request,
-        "stats": stats
-    })
-
-@app.get("/debug_overview")
-async def debug_overview_endpoint(request: Request):
-    presents = load_presents()
-    stats = calculate_global_stats(presents)
+    recipients_list = [r.strip() for r in recipients.split(',') if r.strip()]
+    senders_list = [s.strip() for s in senders.split(',') if s.strip()]
+    categories_list = [c.strip() for c in question_categories.split(',') if c.strip()]
     
-    return templates.TemplateResponse("debug_overview.html", {
-        "request": request,
-        "stats": stats
-    })
-
+    new_present_data = {
+        "recipients": recipients_list,
+        "senders": senders_list,
+        "note": note.strip(),
+        "hidden_note": hidden_note.strip(),
+        "status": "locked", 
+        "question_categories": categories_list,
+        "scanned_times": 0
+    }
+    
+    presents[new_code] = new_present_data
+    save_presents(presents)
+    
+    print(f"Created new present: {new_code}")
+    
+    return RedirectResponse(url="/add_present", status_code=303)
