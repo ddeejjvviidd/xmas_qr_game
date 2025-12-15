@@ -334,9 +334,9 @@ async def verify_answer(request: Request):
         if present_id in presents:
             presents[present_id]["status"] = "unlocked"
             save_presents(presents)
-        return {"success": True, "message": "Správně! Dárek je odemčen."}
+        return {"success": True, "message": "Dárek je odemčen."}
     else:
-        return {"success": False, "message": "Špatná odpověď, zkus to znovu."}
+        return {"success": False, "message": "Zkus to znovu."}
     
 @app.post("/control/reset_locks")
 async def control_reset_locks(request: Request):

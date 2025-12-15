@@ -34,7 +34,6 @@
             const darekId = "{{ present_id }}";
             const questionId = {{ question.id }};
             
-            // Zablokujeme tlačítka, aby uživatel neklikal víckrát
             const buttons = document.querySelectorAll('#options-container button');
             buttons.forEach(btn => btn.disabled = true);
             buttons[selectedIndex].classList.add('bg-slate-500', 'cursor-wait');
@@ -75,7 +74,7 @@
                 title.className = "text-3xl font-bold mb-2 text-green-500";
             } else {
                 icon.innerHTML = "❌";
-                title.innerHTML = "Vedle!";
+                title.innerHTML = "Špatně!";
                 title.className = "text-3xl font-bold mb-2 text-red-500";
             }
             msg.innerText = message;
