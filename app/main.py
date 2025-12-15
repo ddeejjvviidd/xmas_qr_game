@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import shutil
 
 from fastapi import FastAPI, Request, Body
 from fastapi.responses import HTMLResponse
@@ -67,8 +68,20 @@ def get_random_question(questions, categories=None):
     return random.choice(filtered_questions)
 
 def save_presents(presents):
-    with open(DATA_PRESENTS, "w", encoding="utf-8") as f:
-        json.dump(presents, f, indent=2, ensure_ascii=False)
+
+    BACKUP_FILE = DATA_PRESENTS + ".bak"
+    shutil.copyfile(DATA_PRESENTS, BACKUP_FILE)
+    
+    try:
+        with open(DATA_PRESENTS, "w", encoding="utf-8") as f:
+            json.dump(presents, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        shutil.copyfile(BACKUP_FILE, DATA_PRESENTS)
+        print("Error saving presents, restored from backup.")
+        raise e
+    finally:
+        if os.path.exists(BACKUP_FILE):
+            os.remove(BACKUP_FILE)
 
 def calculate_stats(current_present, all_presents):
     """
@@ -82,9 +95,7 @@ def calculate_stats(current_present, all_presents):
         found_count = 0
         total_count = 0
 
-        # Projdeme všechny dárky v databázi
         for p_id, p_data in all_presents.items():
-            # Pokud je tato osoba mezi příjemci zkoumaného dárku
             if person in p_data.get("recipients", []):
                 total_count += 1
                 if p_data.get("status") == "unlocked":
