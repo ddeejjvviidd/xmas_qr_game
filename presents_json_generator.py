@@ -3,7 +3,7 @@ import random
 import os
 
 FILE = "./presents.json"
-PRESENTS_NUM = 50
+PRESENTS_NUM = 5
 CODE_LENGTH = 6
 
 CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
