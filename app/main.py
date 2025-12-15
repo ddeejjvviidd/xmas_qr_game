@@ -29,6 +29,8 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+REPEAT_QUESTIONS = False
+
 
 #===============================================================
 #==================         FUNCTIONS         ==================
@@ -45,27 +47,34 @@ def load_questions():
 
 def get_random_question(questions, categories=None):
     print("FUNC: get_random_question")
-    print(f'- given categories\': {categories}')
 
-    if categories is None:
-        print("RETURN Random choice without filtering")
-        return random.choice(questions)
-    
+    if not REPEAT_QUESTIONS:
+        print(f'- Filtering out answered questions from total of: {len(questions)}')
+        original_questions = questions.copy()
+        questions = [q for q in questions if not q.get("answered", False)]
+        if len(questions) == 0:
+            print(f'- all questions answered, keeping original list.')
+            questions = original_questions
+        else:
+            print(f'- Questions after filtering answered: {len(questions)}')
 
-    filtered_questions = [
-        q for q in questions
-        if any(cat in q.get("category", []) for cat in categories)
-    ]
-
-    print(f'- Total questions count: {len(questions)}')
-    print(f'- Filtered questions count: {len(filtered_questions)}')
+    if len(categories) > 0:
+        print(f'- given categories\': {categories}')
+        filtered_questions = [
+            q for q in questions
+            if any(cat in q.get("category", []) for cat in categories)
+        ]
+        if not filtered_questions:
+            print(f'- No questions found for the given categories.')
+        else:
+            print(f'- Questions after filtering by categories: {len(filtered_questions)}')
+            print("RETURN Random choice from specific categories.")
+            return random.choice(filtered_questions)
     
-    if not filtered_questions:
-        print("RETURN No questions found for the given categories")
-        return random.choice(questions)
+    print(f'RETURN Random choice from {len(questions)}')
+    return random.choice(questions)
     
-    print("RETURN Questions filtered by categories")
-    return random.choice(filtered_questions)
+    
 
 def save_presents(presents):
 
@@ -79,9 +88,19 @@ def save_presents(presents):
         shutil.copyfile(BACKUP_FILE, DATA_PRESENTS)
         print("Error saving presents, restored from backup.")
         raise e
-    finally:
-        if os.path.exists(BACKUP_FILE):
-            os.remove(BACKUP_FILE)
+
+def save_questions(questions):
+
+    BACKUP_FILE = DATA_QUESTIONS + ".bak"
+    shutil.copyfile(DATA_QUESTIONS, BACKUP_FILE)
+    
+    try:
+        with open(DATA_QUESTIONS, "w", encoding="utf-8") as f:
+            json.dump(questions, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        shutil.copyfile(BACKUP_FILE, DATA_QUESTIONS)
+        print("Error saving questions, restored from backup.")
+        raise e
 
 def calculate_stats(current_present, all_presents):
     """
@@ -221,6 +240,10 @@ async def verify_answer(request: Request):
     is_correct = (selected_option_index == question["correct_option"])
     
     if is_correct:
+        if not REPEAT_QUESTIONS:
+            print("Marking question as answered")
+            question["answered"] = True
+            save_questions(questions)
         if present_id in presents:
             presents[present_id]["status"] = "unlocked"
             save_presents(presents)
