@@ -302,6 +302,12 @@ async def add_present_page(request: Request):
         "request": request
     })
 
+@app.get("/add_question")
+async def add_question_page(request: Request):
+    return templates.TemplateResponse("add_question.html", {
+        "request": request
+    })
+
 #===============================================================
 #==================       POST ENDPOINTS      ==================
 #===============================================================
@@ -386,4 +392,69 @@ async def add_present_submit(
     
     print(f"Created new present: {new_code}")
     
-    return RedirectResponse(url="/add_present", status_code=303)
+    return RedirectResponse(url="/control_page", status_code=303)
+
+@app.post("/add_question")
+async def add_question_submit(
+    request: Request,
+    title: str = Form(...),
+    categories: str = Form(""),
+    correct_index: int = Form(...),
+    # Musíme explicitně definovat všech 6 inputů, protože přichází jako jednotlivá pole
+    option_0: str = Form(""),
+    option_1: str = Form(""),
+    option_2: str = Form(""),
+    option_3: str = Form(""),
+    option_4: str = Form(""),
+    option_5: str = Form("")
+):
+    questions = load_questions()
+    
+    if questions:
+        new_id = max(q["id"] for q in questions) + 1
+    else:
+        new_id = 0
+        
+    categories_list = [c.strip() for c in categories.split(',') if c.strip()]
+    
+    raw_options = [option_0, option_1, option_2, option_3, option_4, option_5]
+    
+    final_options = []
+    final_correct_index = 0
+    
+    if not raw_options[correct_index].strip():
+        # Fallback/Error handling: if user selected an empty field as correct
+        # This is a basic error handling, simply redirecting back would be better in production
+        print("ERROR: Selected correct option is empty.")
+        return RedirectResponse(url="/add_question", status_code=303)
+
+    current_new_index = 0
+    for i, opt in enumerate(raw_options):
+        cleaned_opt = opt.strip()
+        if cleaned_opt:
+            final_options.append(cleaned_opt)
+            if i == correct_index:
+                final_correct_index = current_new_index
+            current_new_index += 1
+            
+    # Basic validation requiring at least 2 options
+    if len(final_options) < 2:
+        print("ERROR: Less than 2 options provided.")
+        return RedirectResponse(url="/add_question", status_code=303)
+
+    new_question_data = {
+        "id": new_id,
+        "title": title.strip(),
+        "options": final_options,
+        "correct_option": final_correct_index,
+        "category": categories_list,
+        "answered": False
+    }
+    
+    # SAVE
+    questions.append(new_question_data)
+    save_questions(questions)
+    
+    print(f"Created new question ID: {new_id}")
+    
+    return RedirectResponse(url="/control_page", status_code=303)
