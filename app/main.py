@@ -32,7 +32,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 REPEAT_QUESTIONS = False
 TROLL_MODE = True
-CHECK_MODE = False
+CHECK_MODE = True
 
 CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
 ADMIN_SECRET = "passwd123"
@@ -308,7 +308,9 @@ async def control_page_endpoint(request: Request, present_id: str = None):
     return templates.TemplateResponse("control_page.html", {
         "request": request,
         "stats": stats,
-        "present_id": present_id
+        "present_id": present_id,
+        "troll_mode": TROLL_MODE,
+        "check_mode": CHECK_MODE
     })
 
 @app_admin.get("/getPresentData/{present_id}")
@@ -511,5 +513,17 @@ async def add_question_submit(
     print(f"Created new question ID: {new_id}")
     
     return RedirectResponse(url="/control_page", status_code=303)
+
+@app_admin.post("/control/toggle_troll")
+async def toggle_troll_endpoint():
+    global TROLL_MODE
+    TROLL_MODE = not TROLL_MODE
+    return {"status": "success", "new_state": TROLL_MODE}
+
+@app_admin.post("/control/toggle_check")
+async def toggle_check_endpoint():
+    global CHECK_MODE
+    CHECK_MODE = not CHECK_MODE
+    return {"status": "success", "new_state": CHECK_MODE}
 
 app.include_router(app_admin)
