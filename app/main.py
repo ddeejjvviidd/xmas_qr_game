@@ -2,6 +2,7 @@ import os
 import json
 import random
 import shutil
+from datetime import datetime
 
 from fastapi import FastAPI, Request, Body, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -30,6 +31,7 @@ app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), nam
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 REPEAT_QUESTIONS = False
+TROLL_MODE = True
 
 CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
 
@@ -222,6 +224,9 @@ async def test_endpoint(request: Request, id: str = None):
 
 @app.get("/present")
 async def present_endpoint(request: Request, id: str = None):
+
+    if(TROLL_MODE):
+        return RedirectResponse(url=f"https://www.youtube.com/watch?v=xvFZjo5PgG0", status_code=303)
     
     # no ID
     if id is None:
@@ -339,6 +344,7 @@ async def verify_answer(request: Request):
             save_questions(questions)
         if present_id in presents:
             presents[present_id]["status"] = "unlocked"
+            presents[present_id]["scanned_times"] = presents[present_id].get("scanned_times", 0) + 1
             save_presents(presents)
         return {"success": True, "message": "Dárek je odemčen."}
     else:
@@ -383,6 +389,7 @@ async def add_present_submit(
         "note": note.strip(),
         "hidden_note": hidden_note.strip(),
         "status": "locked", 
+        "created_at": datetime.utcnow().isoformat(),
         "question_categories": categories_list,
         "scanned_times": 0
     }
