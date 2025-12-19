@@ -2,23 +2,36 @@
 
 {% block content %}
 
-    <p class="text-center text-sm text-slate-400 mb-4 uppercase tracking-widest">Otázka</p>
-    
-    <h2 class="text-2xl font-bold text-center text-yellow-400 mb-8 leading-relaxed">
-        {{ question.title }}
-    </h2>
+    <div id="loading-screen" class="fixed inset-0 bg-slate-900 z-[100] flex flex-col items-center justify-center transition-opacity duration-700">
+        
+        <div class="mb-6 text-8xl animate-bounce">
+            🎁
+        </div>
+        
+        <h3 class="text-2xl font-bold text-yellow-400 mb-2 leading-relaxed">Načítám otázku...</h3>
+        <p class="text-slate-400 text-sm">Co je asi uvnitř dárku?</p>
+    </div>
 
-    <div class="space-y-3" id="options-container">
-        {% if question.options %}
-            {% for opt in question.options %}
-                <button onclick="submitAnswer({{ loop.index0 }})" 
-                        class="w-full py-4 px-6 bg-slate-700 hover:bg-yellow-500 hover:text-slate-900 rounded-xl transition-all duration-200 font-medium text-lg shadow-lg border border-slate-600 hover:border-yellow-400 hover:shadow-yellow-500/20 active:scale-95">
-                    {{ opt }}
-                </button>
-            {% endfor %}
-        {% else %}
-             <p class="text-red-500 text-center">Tento typ otázky zatím není podporován.</p>
-        {% endif %}
+    <div id="main-content" class="opacity-0 transition-opacity duration-700">
+        
+        <p class="text-center text-sm text-slate-400 mb-4 uppercase tracking-widest">Otázka</p>
+        
+        <h2 class="text-2xl font-bold text-center text-yellow-400 mb-8 leading-relaxed">
+            {{ question.title }}
+        </h2>
+
+        <div class="space-y-3" id="options-container">
+            {% if question.options %}
+                {% for opt in question.options %}
+                    <button onclick="submitAnswer({{ loop.index0 }})" 
+                            class="w-full py-4 px-6 bg-slate-700 hover:bg-yellow-500 hover:text-slate-900 rounded-xl transition-all duration-200 font-medium text-lg shadow-lg border border-slate-600 hover:border-yellow-400 hover:shadow-yellow-500/20 active:scale-95">
+                        {{ opt }}
+                    </button>
+                {% endfor %}
+            {% else %}
+                 <p class="text-red-500 text-center">Tento typ otázky zatím není podporován.</p>
+            {% endif %}
+        </div>
     </div>
 
     <div id="feedback-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 hidden flex items-center justify-center transition-opacity duration-300 opacity-0">
@@ -30,6 +43,22 @@
     </div>
 
     <script>
+        // LOADING SCREEN
+        document.addEventListener("DOMContentLoaded", () => {
+            const loader = document.getElementById('loading-screen');
+            const content = document.getElementById('main-content');
+
+            setTimeout(() => {
+                loader.classList.add('opacity-0');
+                content.classList.remove('opacity-0');
+
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 700);
+            }, 600);
+        });
+
+        // === LOGIKA ODPOVĚDÍ (Původní) ===
         async function submitAnswer(selectedIndex) {
             const darekId = "{{ present_id }}";
             const questionId = {{ question.id }};
@@ -67,7 +96,6 @@
             const msg = document.getElementById('feedback-message');
             const content = document.getElementById('feedback-content');
 
-            // Nastavení obsahu
             if (isSuccess) {
                 icon.innerHTML = "✅";
                 title.innerHTML = "Správně!";
@@ -79,25 +107,16 @@
             }
             msg.innerText = message;
 
-            // Zobrazení overlaye
             overlay.classList.remove('hidden');
-            // Malé zpoždění pro animaci opacity
             setTimeout(() => {
                 overlay.classList.remove('opacity-0');
                 content.classList.remove('scale-90');
                 content.classList.add('scale-100');
             }, 10);
 
-            // Co se stane dál?
             setTimeout(() => {
-                if (isSuccess) {
-                    // Úspěch -> reload stránky (server pak vrátí result.html, protože status je unlocked)
-                    window.location.reload();
-                } else {
-                    // Neúspěch -> reload stránky (server vybere novou otázku)
-                    window.location.reload();
-                }
-            }, 2000); // Čekáme 2 sekundy, aby si uživatel přečetl výsledek
+                window.location.reload();
+            }, 2000);
         }
     </script>
 

@@ -348,7 +348,9 @@ async def admin_login(k: str = None):
             key="admin_access", 
             value="allowed", 
             max_age=60*60*6, # 6 hours
-            httponly=True
+            httponly=True,
+            secure=False,
+            samesite="lax"
         ) 
         return response
     else:
