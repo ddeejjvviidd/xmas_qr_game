@@ -31,7 +31,7 @@ app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), nam
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 REPEAT_QUESTIONS = False
-TROLL_MODE = False
+TROLL_MODE = True
 CHECK_MODE = False
 
 CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
@@ -339,8 +339,8 @@ async def add_question_page(request: Request):
     })
 
 @app.get("/login")
-async def admin_login(k: str):
-    if k == ADMIN_SECRET:
+async def admin_login(k: str = None):
+    if k is not None and k == ADMIN_SECRET:
         response = RedirectResponse(url="/control_page")
         response.set_cookie(
             key="admin_access", 
