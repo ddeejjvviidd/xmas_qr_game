@@ -41,7 +41,7 @@
                                 {% if s.unlocked_ids %}
                                     <div class="flex flex-wrap gap-2">
                                         {% for uid in s.unlocked_ids %}
-                                            <a href="/present?id={{ uid }}" target="_blank" 
+                                            <a href="/control_page?present_id={{ uid }}#inspector-form"  
                                                class="px-2.5 py-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-mono rounded hover:bg-green-500/20 transition-colors">
                                                 {{ uid }}
                                             </a>
@@ -61,7 +61,7 @@
                                 {% if s.locked_ids %}
                                     <div class="flex flex-wrap gap-2">
                                         {% for lid in s.locked_ids %}
-                                            <a href="/present?id={{ lid }}" target="_blank" 
+                                            <a href="/control_page?present_id={{ lid }}#inspector-form"  
                                                class="px-2.5 py-1.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono rounded hover:bg-red-500/20 transition-colors">
                                                 {{ lid }}
                                             </a>
@@ -117,8 +117,10 @@
                 
                 <form id="inspector-form" class="flex flex-col sm:flex-row gap-2 mb-4">
                     
-                    <input type="text" id="inspector-input" placeholder="...gift ID (e.g., test01)" 
-                           class="w-full flex-1 bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500 font-mono text-base placeholder-slate-600">
+                    <input type="text" id="inspector-input" 
+                        value="{{ present_id if present_id else '' }}" 
+                        placeholder="...gift ID (e.g., test01)" 
+                        class="w-full flex-1 bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500 font-mono text-base placeholder-slate-600">
                     
                     <button type="submit" class="w-full sm:w-auto px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors font-bold whitespace-nowrap">
                         Search
@@ -148,6 +150,18 @@
     </div>
     
     <script>
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const input = document.getElementById('inspector-input');
+            
+            if (input.value.trim() !== "") {
+                const submitBtn = document.querySelector('#inspector-form button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.click();
+                }
+            }
+        });
+
         async function callControlEndpoint(url) {
 
             const statusEl = document.getElementById('action-status');

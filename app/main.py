@@ -4,7 +4,7 @@ import random
 import shutil
 from datetime import datetime
 
-from fastapi import FastAPI, Request, Body, Form
+from fastapi import FastAPI, Request, Body, Form, HTTPException, Depends, APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -32,13 +32,27 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 REPEAT_QUESTIONS = False
 TROLL_MODE = True
+CHECK_MODE = True
 
 CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
+ADMIN_SECRET = "passwd123"
+
+
+async def verify_admin(request: Request):
+    auth_cookie = request.cookies.get("admin_access")
+    if auth_cookie != "allowed":
+        raise HTTPException(status_code=403, detail="Denied.")
+    return True
+
+app_admin = APIRouter(
+    dependencies=[Depends(verify_admin)]
+)
 
 
 #===============================================================
 #==================         FUNCTIONS         ==================
 #===============================================================
+
 def load_presents():
     with open(DATA_PRESENTS, "r", encoding="utf-8") as f:
         presents = json.load(f)
@@ -225,7 +239,10 @@ async def test_endpoint(request: Request, id: str = None):
 @app.get("/present")
 async def present_endpoint(request: Request, id: str = None):
 
-    if(TROLL_MODE):
+    auth_cookie = request.cookies.get("admin_access")
+    is_admin = (auth_cookie == "allowed")
+
+    if(TROLL_MODE and not is_admin):
         return RedirectResponse(url=f"https://www.youtube.com/watch?v=xvFZjo5PgG0", status_code=303)
     
     # no ID
@@ -245,6 +262,13 @@ async def present_endpoint(request: Request, id: str = None):
         })
     
     current_present = presents[id]
+
+    # increment scanned_times
+    current_present["scanned_times"] = current_present.get("scanned_times", 0) + 1
+    save_presents(presents)
+
+    if(CHECK_MODE and is_admin):
+        return RedirectResponse(url=f'/control_page?present_id={id}#inspector-form')
 
     # present unlocked
     if current_present["status"] == "unlocked":
@@ -276,17 +300,18 @@ async def overview_endpoint(request: Request):
         "stats": stats
     })
 
-@app.get("/control_page")
-async def control_page_endpoint(request: Request):
+@app_admin.get("/control_page")
+async def control_page_endpoint(request: Request, present_id: str = None):
     presents = load_presents()
     stats = calculate_global_stats(presents)
     
     return templates.TemplateResponse("control_page.html", {
         "request": request,
-        "stats": stats
+        "stats": stats,
+        "present_id": present_id
     })
 
-@app.get("/getPresentData/{present_id}")
+@app_admin.get("/getPresentData/{present_id}")
 async def get_present_data_endpoint(present_id: str):
     presents = load_presents()
     
@@ -301,17 +326,37 @@ async def get_present_data_endpoint(present_id: str):
             "message": f"Present '{present_id}' not found."
         }
     
-@app.get("/add_present")
+@app_admin.get("/add_present")
 async def add_present_page(request: Request):
     return templates.TemplateResponse("add_present.html", {
         "request": request
     })
 
-@app.get("/add_question")
+@app_admin.get("/add_question")
 async def add_question_page(request: Request):
     return templates.TemplateResponse("add_question.html", {
         "request": request
     })
+
+@app.get("/login")
+async def admin_login(k: str):
+    if k == ADMIN_SECRET:
+        response = RedirectResponse(url="/control_page")
+        response.set_cookie(
+            key="admin_access", 
+            value="allowed", 
+            max_age=60*60*6, # 6 hours
+            httponly=True
+        ) 
+        return response
+    else:
+        return HTMLResponse("<h1>Wrong pass</h1>", status_code=401)
+
+@app.get("/logout")
+async def admin_logout():
+    response = HTMLResponse(content="<h1>Logged out</h1>")
+    response.delete_cookie(key="admin_access")
+    return response
 
 #===============================================================
 #==================       POST ENDPOINTS      ==================
@@ -344,29 +389,29 @@ async def verify_answer(request: Request):
             save_questions(questions)
         if present_id in presents:
             presents[present_id]["status"] = "unlocked"
-            presents[present_id]["scanned_times"] = presents[present_id].get("scanned_times", 0) + 1
+            #presents[present_id]["scanned_times"] = presents[present_id].get("scanned_times", 0) + 1
             save_presents(presents)
         return {"success": True, "message": "Dárek je odemčen."}
     else:
         return {"success": False, "message": "Zkus to znovu."}
     
-@app.post("/control/reset_locks")
+@app_admin.post("/control/reset_locks")
 async def control_reset_locks(request: Request):
     reset_presents_locks()
     return {"success": True, "message": "All presents locked."}
 
-@app.post("/control/reset_questions")
+@app_admin.post("/control/reset_questions")
 async def control_reset_questions(request: Request):
     reset_questions_answered()
     return {"success": True, "message": "All questions reset."}
 
-@app.post("/control/reset_game")
+@app_admin.post("/control/reset_game")
 async def control_reset_game(request: Request):
     reset_presents_locks()
     reset_questions_answered()
     return {"success": True, "message": "Complete game reset performed."}
 
-@app.post("/add_present")
+@app_admin.post("/add_present")
 async def add_present_submit(
     request: Request,
     recipients: str = Form(""),
@@ -402,7 +447,7 @@ async def add_present_submit(
     
     return RedirectResponse(url="/control_page", status_code=303)
 
-@app.post("/add_question")
+@app_admin.post("/add_question")
 async def add_question_submit(
     request: Request,
     title: str = Form(...),
@@ -466,3 +511,5 @@ async def add_question_submit(
     print(f"Created new question ID: {new_id}")
     
     return RedirectResponse(url="/control_page", status_code=303)
+
+app.include_router(app_admin)
