@@ -391,7 +391,8 @@ async def add_present_submit(
         "status": "locked", 
         "created_at": datetime.utcnow().isoformat(),
         "question_categories": categories_list,
-        "scanned_times": 0
+        "scanned_times": 0,
+        "qr_printed": False
     }
     
     presents[new_code] = new_present_data

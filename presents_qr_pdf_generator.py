@@ -6,6 +6,8 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 import io
 
+from app.main import save_presents
+
 PRESENTS_FILE = 'presents.json'
 OUTPUT_PDF = 'qr_codes.pdf'
 BASE_URL = ""
@@ -30,18 +32,39 @@ def generate_presents_pdf(specific_codes=None):
     except FileNotFoundError:
         print(f"Error: File {PRESENTS_FILE} not found.")
         return
+    
+    print(f'Total of {len(data)} presents loaded from {PRESENTS_FILE}.')
+    
+    keys_to_process = []
+    data_modified = False
 
     if specific_codes:
-        keys_to_process = [k for k in data.keys() if k in specific_codes]
-        
         missing = set(specific_codes) - set(data.keys())
         if missing:
             print(f"These codes were not found and will be skipped: {missing}")
+
+        for code in specific_codes:
+            if code in data:
+                keys_to_process.append(code)
+                # Setting the parameter qr_printed to True if it wasnt
+                if not data[code].get('qr_printed', False):
+                    data[code]['qr_printed'] = True
+                    data_modified = True
+                else:
+                    # already was True, but just to be sure
+                    data[code]['qr_printed'] = True
     else:
-        keys_to_process = list(data.keys())
+        # Create QR codes for all presents that haven't been printed yet
+        for code, details in data.items():
+            # even if the parameter is missing, we consider it as False
+            if not details.get('qr_printed', False):
+                keys_to_process.append(code)
+                # qr_printed True
+                data[code]['qr_printed'] = True
+                data_modified = True
 
     if not keys_to_process:
-        print("No items to print.")
+        print("No new items to print (all QR codes already created or list empty).")
         return
 
     c = canvas.Canvas(OUTPUT_PDF, pagesize=A4)
@@ -89,8 +112,12 @@ def generate_presents_pdf(specific_codes=None):
                 current_row_y = page_height - MARGIN_Y_TOP - QR_SIZE
 
     c.save()
+    print(f"Created QR codes for {count} presents.")
     print(f"PDF generated: {OUTPUT_PDF}")
-    print(f"Processed {count} items.")
+
+    # Saving to presents.json to update qr_printed status
+    #if data_modified:
+    #    save_presents(data)
 
 if __name__ == "__main__":
     
@@ -98,5 +125,7 @@ if __name__ == "__main__":
     #generate_presents_pdf()
     
     # Print specific
-    target_presents = ['test01', 'test02', 'test03'] 
-    generate_presents_pdf(target_presents)
+    #target_presents = ['test01', 'test02', 'test03'] 
+    #generate_presents_pdf(target_presents)
+    generate_presents_pdf()
+
