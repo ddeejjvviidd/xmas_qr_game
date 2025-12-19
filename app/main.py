@@ -2,8 +2,9 @@ import os
 import json
 import random
 import shutil
+from datetime import datetime
 
-from fastapi import FastAPI, Request, Body, Form
+from fastapi import FastAPI, Request, Body, Form, HTTPException, Depends, APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -30,13 +31,28 @@ app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), nam
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 REPEAT_QUESTIONS = False
+TROLL_MODE = True
+CHECK_MODE = True
 
 CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
+ADMIN_SECRET = "passwd123"
+
+
+async def verify_admin(request: Request):
+    auth_cookie = request.cookies.get("admin_access")
+    if auth_cookie != "allowed":
+        raise HTTPException(status_code=403, detail="Denied.")
+    return True
+
+app_admin = APIRouter(
+    dependencies=[Depends(verify_admin)]
+)
 
 
 #===============================================================
 #==================         FUNCTIONS         ==================
 #===============================================================
+
 def load_presents():
     with open(DATA_PRESENTS, "r", encoding="utf-8") as f:
         presents = json.load(f)
@@ -222,6 +238,12 @@ async def test_endpoint(request: Request, id: str = None):
 
 @app.get("/present")
 async def present_endpoint(request: Request, id: str = None):
+
+    auth_cookie = request.cookies.get("admin_access")
+    is_admin = (auth_cookie == "allowed")
+
+    if(TROLL_MODE and not is_admin):
+        return RedirectResponse(url=f"https://www.youtube.com/watch?v=xvFZjo5PgG0", status_code=303)
     
     # no ID
     if id is None:
@@ -240,6 +262,13 @@ async def present_endpoint(request: Request, id: str = None):
         })
     
     current_present = presents[id]
+
+    # increment scanned_times
+    current_present["scanned_times"] = current_present.get("scanned_times", 0) + 1
+    save_presents(presents)
+
+    if(CHECK_MODE and is_admin):
+        return RedirectResponse(url=f'/control_page?present_id={id}#inspector-form')
 
     # present unlocked
     if current_present["status"] == "unlocked":
@@ -271,17 +300,18 @@ async def overview_endpoint(request: Request):
         "stats": stats
     })
 
-@app.get("/control_page")
-async def control_page_endpoint(request: Request):
+@app_admin.get("/control_page")
+async def control_page_endpoint(request: Request, present_id: str = None):
     presents = load_presents()
     stats = calculate_global_stats(presents)
     
     return templates.TemplateResponse("control_page.html", {
         "request": request,
-        "stats": stats
+        "stats": stats,
+        "present_id": present_id
     })
 
-@app.get("/getPresentData/{present_id}")
+@app_admin.get("/getPresentData/{present_id}")
 async def get_present_data_endpoint(present_id: str):
     presents = load_presents()
     
@@ -296,11 +326,37 @@ async def get_present_data_endpoint(present_id: str):
             "message": f"Present '{present_id}' not found."
         }
     
-@app.get("/add_present")
+@app_admin.get("/add_present")
 async def add_present_page(request: Request):
     return templates.TemplateResponse("add_present.html", {
         "request": request
     })
+
+@app_admin.get("/add_question")
+async def add_question_page(request: Request):
+    return templates.TemplateResponse("add_question.html", {
+        "request": request
+    })
+
+@app.get("/login")
+async def admin_login(k: str):
+    if k == ADMIN_SECRET:
+        response = RedirectResponse(url="/control_page")
+        response.set_cookie(
+            key="admin_access", 
+            value="allowed", 
+            max_age=60*60*6, # 6 hours
+            httponly=True
+        ) 
+        return response
+    else:
+        return HTMLResponse("<h1>Wrong pass</h1>", status_code=401)
+
+@app.get("/logout")
+async def admin_logout():
+    response = HTMLResponse(content="<h1>Logged out</h1>")
+    response.delete_cookie(key="admin_access")
+    return response
 
 #===============================================================
 #==================       POST ENDPOINTS      ==================
@@ -333,28 +389,29 @@ async def verify_answer(request: Request):
             save_questions(questions)
         if present_id in presents:
             presents[present_id]["status"] = "unlocked"
+            #presents[present_id]["scanned_times"] = presents[present_id].get("scanned_times", 0) + 1
             save_presents(presents)
-        return {"success": True, "message": "Správně! Dárek je odemčen."}
+        return {"success": True, "message": "Dárek je odemčen."}
     else:
-        return {"success": False, "message": "Špatná odpověď, zkus to znovu."}
+        return {"success": False, "message": "Zkus to znovu."}
     
-@app.post("/control/reset_locks")
+@app_admin.post("/control/reset_locks")
 async def control_reset_locks(request: Request):
     reset_presents_locks()
     return {"success": True, "message": "All presents locked."}
 
-@app.post("/control/reset_questions")
+@app_admin.post("/control/reset_questions")
 async def control_reset_questions(request: Request):
     reset_questions_answered()
     return {"success": True, "message": "All questions reset."}
 
-@app.post("/control/reset_game")
+@app_admin.post("/control/reset_game")
 async def control_reset_game(request: Request):
     reset_presents_locks()
     reset_questions_answered()
     return {"success": True, "message": "Complete game reset performed."}
 
-@app.post("/add_present")
+@app_admin.post("/add_present")
 async def add_present_submit(
     request: Request,
     recipients: str = Form(""),
@@ -377,8 +434,10 @@ async def add_present_submit(
         "note": note.strip(),
         "hidden_note": hidden_note.strip(),
         "status": "locked", 
+        "created_at": datetime.utcnow().isoformat(),
         "question_categories": categories_list,
-        "scanned_times": 0
+        "scanned_times": 0,
+        "qr_printed": False
     }
     
     presents[new_code] = new_present_data
@@ -386,4 +445,71 @@ async def add_present_submit(
     
     print(f"Created new present: {new_code}")
     
-    return RedirectResponse(url="/add_present", status_code=303)
+    return RedirectResponse(url="/control_page", status_code=303)
+
+@app_admin.post("/add_question")
+async def add_question_submit(
+    request: Request,
+    title: str = Form(...),
+    categories: str = Form(""),
+    correct_index: int = Form(...),
+    # Musíme explicitně definovat všech 6 inputů, protože přichází jako jednotlivá pole
+    option_0: str = Form(""),
+    option_1: str = Form(""),
+    option_2: str = Form(""),
+    option_3: str = Form(""),
+    option_4: str = Form(""),
+    option_5: str = Form("")
+):
+    questions = load_questions()
+    
+    if questions:
+        new_id = max(q["id"] for q in questions) + 1
+    else:
+        new_id = 0
+        
+    categories_list = [c.strip() for c in categories.split(',') if c.strip()]
+    
+    raw_options = [option_0, option_1, option_2, option_3, option_4, option_5]
+    
+    final_options = []
+    final_correct_index = 0
+    
+    if not raw_options[correct_index].strip():
+        # Fallback/Error handling: if user selected an empty field as correct
+        # This is a basic error handling, simply redirecting back would be better in production
+        print("ERROR: Selected correct option is empty.")
+        return RedirectResponse(url="/add_question", status_code=303)
+
+    current_new_index = 0
+    for i, opt in enumerate(raw_options):
+        cleaned_opt = opt.strip()
+        if cleaned_opt:
+            final_options.append(cleaned_opt)
+            if i == correct_index:
+                final_correct_index = current_new_index
+            current_new_index += 1
+            
+    # Basic validation requiring at least 2 options
+    if len(final_options) < 2:
+        print("ERROR: Less than 2 options provided.")
+        return RedirectResponse(url="/add_question", status_code=303)
+
+    new_question_data = {
+        "id": new_id,
+        "title": title.strip(),
+        "options": final_options,
+        "correct_option": final_correct_index,
+        "category": categories_list,
+        "answered": False
+    }
+    
+    # SAVE
+    questions.append(new_question_data)
+    save_questions(questions)
+    
+    print(f"Created new question ID: {new_id}")
+    
+    return RedirectResponse(url="/control_page", status_code=303)
+
+app.include_router(app_admin)
