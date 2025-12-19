@@ -31,8 +31,8 @@ app.mount("/static", StaticFiles(directory=os.path.join(APP_DIR, "static")), nam
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 REPEAT_QUESTIONS = False
-TROLL_MODE = True
-CHECK_MODE = True
+TROLL_MODE = False
+CHECK_MODE = False
 
 CHARS = "abcdefghjkmnpqrstuvwxyz23456789"
 ADMIN_SECRET = "passwd123"
