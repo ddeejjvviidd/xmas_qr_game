@@ -15,7 +15,7 @@
                 <div class="mb-6 bg-slate-900/80 border border-slate-700 rounded-xl p-4 flex justify-between items-center shadow-lg">
                     <h2 class="text-lg font-bold text-slate-300 tracking-wide">Celkový počet dárků</h2>
                     <span class="text-3xl font-bold text-yellow-400 font-mono bg-yellow-500/10 px-3 py-1 rounded-md border border-yellow-500/20">
-                        {{ stats | sum(attribute='total') }}
+                        {{ total_presents }}
                     </span>
                 </div>
                 
@@ -126,6 +126,10 @@
                 <button type="button" onclick="window.location.href='/add_question'"
                         class="w-full mt-3 px-4 py-3 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 font-bold text-sm hover:bg-green-500/20 transition-all flex items-center justify-center gap-2">
                     ADD QUESTION
+                </button>
+                <button type="button" onclick="window.location.href='/questions'"
+                        class="w-full mt-3 px-4 py-3 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 font-bold text-sm hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2">
+                    SEE QUESTIONS
                 </button>
             </div>
 

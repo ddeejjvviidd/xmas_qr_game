@@ -116,8 +116,8 @@ def generate_presents_pdf(specific_codes=None):
     print(f"PDF generated: {OUTPUT_PDF}")
 
     # Saving to presents.json to update qr_printed status
-    #if data_modified:
-    #    save_presents(data)
+    if data_modified:
+        save_presents(data)
 
 if __name__ == "__main__":
     

@@ -243,7 +243,9 @@ async def present_endpoint(request: Request, id: str = None):
     is_admin = (auth_cookie == "allowed")
 
     if(TROLL_MODE and not is_admin):
-        return RedirectResponse(url=f"https://www.youtube.com/watch?v=xvFZjo5PgG0", status_code=303)
+        with open("catched_ips.txt", "a") as f:
+            f.write(f"{request.client.host}\n")
+        return RedirectResponse(url=f"https://www.youtube.com/watch?v=2yJgwwDcgV8", status_code=303)
     
     # no ID
     if id is None:
@@ -308,6 +310,7 @@ async def control_page_endpoint(request: Request, present_id: str = None):
     return templates.TemplateResponse("control_page.html", {
         "request": request,
         "stats": stats,
+        "total_presents": len(presents),
         "present_id": present_id,
         "troll_mode": TROLL_MODE,
         "check_mode": CHECK_MODE
@@ -361,6 +364,17 @@ async def admin_logout():
     response = HTMLResponse(content="<h1>Logged out</h1>")
     response.delete_cookie(key="admin_access")
     return response
+
+@app_admin.get("/questions")
+async def questions_list_endpoint(request: Request):
+    questions = load_questions()
+    
+    sorted_questions = sorted(questions, key=lambda x: x['id'])
+    
+    return templates.TemplateResponse("questions_list.html", {
+        "request": request,
+        "questions": sorted_questions
+    })  
 
 #===============================================================
 #==================       POST ENDPOINTS      ==================
