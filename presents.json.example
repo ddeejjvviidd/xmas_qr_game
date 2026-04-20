@@ -1,0 +1,17 @@
+{
+  "t8mv26": {
+    "recipients": [
+      "Mom"
+    ],
+    "senders": [
+      "Tester"
+    ],
+    "note": "Merry Xmas",
+    "hidden_note": "here is the expensive gift",
+    "status": "locked",
+    "created_at": "2026-04-20T08:21:59.576154",
+    "question_categories": ["test_category"],
+    "scanned_times": 0,
+    "qr_printed": false
+  }
+}
