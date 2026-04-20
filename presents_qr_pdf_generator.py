@@ -9,12 +9,13 @@ import io
 from app.main import save_presents
 
 PRESENTS_FILE = 'presents.json'
-OUTPUT_PDF = 'qr_codes.pdf'
+OUTPUT_PDF = 'app/static/qr_codes.pdf'
 BASE_URL = ""
 try:
     with open('config.json', 'r') as f:
         config = json.load(f)
         BASE_URL = config['server_url'] + 'present'
+        PDF_ACCESS_URL = config['server_url'] + 'static/qr_codes.pdf'
 except (FileNotFoundError, KeyError):
     print("Error: 'config.json' not found or 'server_url' key is missing.")
     exit()
@@ -64,7 +65,7 @@ def generate_presents_pdf(specific_codes=None):
                 data_modified = True
 
     if not keys_to_process:
-        print("No new items to print (all QR codes already created or list empty).")
+        print("No new items to print (all QR codes already created or list is empty).")
         return
 
     c = canvas.Canvas(OUTPUT_PDF, pagesize=A4)
@@ -118,6 +119,8 @@ def generate_presents_pdf(specific_codes=None):
     # Saving to presents.json to update qr_printed status
     if data_modified:
         save_presents(data)
+
+    print(f"DONE, see {PDF_ACCESS_URL}.")
 
 if __name__ == "__main__":
     
